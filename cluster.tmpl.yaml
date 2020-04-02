@@ -1,0 +1,162 @@
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: {{ .aws_region }}.{{ .environment }}.k8s.local
+spec:
+  api:
+    loadBalancer:
+      type: Public
+  authorization:
+    alwaysAllow: {}
+  channel: stable
+  cloudProvider: aws
+  kubelet:
+    anonymousAuth: false
+  configBase: s3://kops.{{ .aws_region }}.{{ .environment }}/{{ .aws_region }}.{{ .environment }}.k8s.local
+  etcdClusters:
+  - etcdMembers:
+    - instanceGroup: master.a
+      name: a
+      encryptedVolume: true
+    - instanceGroup: master.b
+      name: b
+      encryptedVolume: true
+    - instanceGroup: master.c
+      name: c
+      encryptedVolume: true
+    name: main
+    enableEtcdTLS: true
+    version: 3.2.24
+  - etcdMembers:
+    - instanceGroup: master.a
+      name: a
+      encryptedVolume: true
+    - instanceGroup: master.b
+      name: b
+      encryptedVolume: true
+    - instanceGroup: master.c
+      name: c
+      encryptedVolume: true
+    name: events
+    enableEtcdTLS: true
+    version: 3.2.24
+  kubernetesApiAccess:
+  - 0.0.0.0/0
+  networkCIDR: 172.20.0.0/16
+  networking:
+    calico: 
+      majorVersion: v3
+      crossSubnet: true
+  nonMasqueradeCIDR: 100.64.0.0/10
+  subnets:
+  - cidr: 172.20.32.0/19
+    name: a
+    type: Private
+    zone: {{ .aws_region }}a
+  - cidr: 172.20.64.0/19
+    name: b
+    type: Private
+    zone: {{ .aws_region }}b
+  - cidr: 172.20.96.0/19
+    name: c
+    type: Private
+    zone: {{ .aws_region }}c
+  - cidr: 172.20.0.0/22
+    name: utility.a
+    type: Utility
+    zone: {{ .aws_region }}a
+  - cidr: 172.20.4.0/22
+    name: utility.b
+    type: Utility
+    zone: {{ .aws_region }}b
+  - cidr: 172.20.8.0/22
+    name: utility.c
+    type: Utility
+    zone: {{ .aws_region }}c
+  kubernetesVersion: {{.kubernetes_version}}
+  topology:
+    dns:
+      type: Private
+    masters: private
+    nodes: private
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: bastions
+  labels:
+    kops.k8s.io/cluster: {{ .aws_region }}.{{ .environment }}.k8s.local
+spec:
+  associatePublicIp: true
+  machineType: t2.micro
+  maxSize: 1
+  minSize: 1
+  role: Bastion
+  subnets:
+  - utility.a
+  - utility.b
+  - utility.c
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: master.a
+  labels:
+    kops.k8s.io/cluster: {{ .aws_region }}.{{ .environment }}.k8s.local
+spec:
+  machineType: m4.large
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - a
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: master.b
+  labels:
+    kops.k8s.io/cluster: {{ .aws_region }}.{{ .environment }}.k8s.local
+spec:
+  machineType: m4.large
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - b
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: master.c
+  labels:
+    kops.k8s.io/cluster: {{ .aws_region }}.{{ .environment }}.k8s.local
+spec:
+  machineType: m4.large
+  maxSize: 1
+  minSize: 1
+  role: Master
+  subnets:
+  - c
+
+---
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  name: nodes
+  labels:
+    kops.k8s.io/cluster: {{ .aws_region }}.{{ .environment }}.k8s.local
+spec:
+  machineType: m4.large
+  maxSize: 3
+  minSize: 1
+  role: Node
+  subnets:
+  - a
+  - b
+  - c
